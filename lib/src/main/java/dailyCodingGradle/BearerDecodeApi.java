@@ -8,7 +8,7 @@ public class BearerDecodeApi{
 
  
 
-	public String BarerTokenDecode(HttpServletRequest request, HashMap<String, Object> paramMap) {
+	public  HashMap<String, Object> BarerTokenDecode(HttpServletRequest request, HashMap<String, Object> paramMap) {
 
 		
 
@@ -20,6 +20,8 @@ public class BearerDecodeApi{
 
 			paramMap.put("bearerToken", a);
 
+		return paramMap;
+		
 	}
 
 }
