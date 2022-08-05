@@ -1,4 +1,4 @@
-@Scheduled(cron="0 0/1 * * * *") 
+@Scheduled(cron="0/10 * * * * *") 
 	public void roomScheduler() throws Exception, ApiException {
 		
 		HashMap<String, Object> dbMap = new HashMap<String, Object>();
@@ -127,22 +127,47 @@
 		        		Date tempEnDt = sDF2.parse(endDt);
 		        		long btwTDt = tempEnDt.getTime() - tempStDt.getTime();
 		        		int btwDt = (int)(btwTDt/(24 * 60 * 60 * 1000));
+		        		System.out.println("회의시간 일수차 : " + btwDt);
 		        		//
 		        		cal.setTime(tempStDt);
-		        		int StartH = cal.get(calendar.HOUR);
+		        		System.out.println("회의 시작시간 : " + cal.getTime());
+		        		int StartH = cal.get(calendar.HOUR_OF_DAY);
+		        		System.out.println("회의 시작HOUR : " + StartH);
 		        		int StartM = cal.get(calendar.MINUTE);
+		        		System.out.println("회의 시작MINUTE : " + StartM);
 		        		int StartS = cal.get(calendar.SECOND);
-		        		Calendar newCal = Calendar.getInstance();
-		        		newCal.add(Calendar.DATE, -1);
-		        		newCal.add(calendar.HOUR, StartH);
-		        		newCal.add(calendar.MINUTE, StartM);
-		        		newCal.add(calendar.SECOND, StartS);
-		        		//
-		        		newCal.add(Calendar.DATE, addDay);
-						regularMap.put("startDt", sDF2.format(newCal.getTime()));
-						cal.setTime(newEndDt);
-						newCal.add(Calendar.DATE, addDay+(int)btwDt);
-						regularMap.put("endDt", sDF2.format(newCal.getTime()));
+		        		System.out.println("회의 시작SECOND : " + StartS);
+		        		Calendar newSCal = Calendar.getInstance();
+		        		newSCal.setTime(sDF.parse(tempnow));
+		        		System.out.println("날짜만 나와야 하는 현재 시간" + newSCal.getTime());
+		        		newSCal.add(Calendar.DATE, -1);
+		        		System.out.println("어제 일수 : " + newSCal.getTime());
+		        		newSCal.add(calendar.HOUR, StartH);
+		        		newSCal.add(calendar.MINUTE, StartM);
+		        		newSCal.add(calendar.SECOND, StartS);
+		        		System.out.println("오늘 날짜에 시간을 더한 것 : " + newSCal.getTime());
+		        		newSCal.add(Calendar.DATE, addDay);
+		        		System.out.println("오늘 날짜에 시간과 날짜를 더한 것 : " + newSCal.getTime());
+						regularMap.put("startDt", sDF2.format(newSCal.getTime()));
+						//
+						cal.setTime(tempEnDt);
+						System.out.println("회의 종료시간 : " + cal.getTime());
+		        		int EndH = cal.get(calendar.HOUR_OF_DAY);
+		        		System.out.println("회의 종료HOUR : " + EndH);
+		        		int EndM = cal.get(calendar.MINUTE);
+		        		System.out.println("회의 종료MINUTE : " + EndM);
+		        		int EndS = cal.get(calendar.SECOND);
+		        		System.out.println("회의 종료SECOND : " + EndS);
+		        		Calendar newECal = Calendar.getInstance();
+		        		newECal.setTime(sDF.parse(tempnow));
+		        		newECal.add(Calendar.DATE, -1);
+		        		System.out.println("어제 일수 : " + newECal.getTime());
+		        		newECal.add(calendar.HOUR, EndH);
+		        		newECal.add(calendar.MINUTE, EndM);
+		        		newECal.add(calendar.SECOND, EndS);
+		        		System.out.println("오늘 날짜에 시간을 더한 것 : " + newECal.getTime());
+		        		newECal.add(Calendar.DATE, addDay+(int)btwDt);
+						regularMap.put("endDt", sDF2.format(newECal.getTime()));
 						regularMap.put("roomCode", roomCode);
 						//
 			    		if("02".equals(regularInfo.getRepeatEndChk())) {
