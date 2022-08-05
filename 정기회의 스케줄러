@@ -1,4 +1,4 @@
-@Scheduled(cron="0/10 * * * * *")
+@Scheduled(cron="0 0/1 * * * *") 
 	public void roomScheduler() throws Exception, ApiException {
 		
 		HashMap<String, Object> dbMap = new HashMap<String, Object>();
@@ -8,23 +8,25 @@
 		 *------------------------------------------------------------------------------------------------------------*/
 		Calendar calendar = new GregorianCalendar();
     	//
+		Date now = new Date();
+		String pattern = "yyyyMMdd";
+		String pattern2 = "yyyy-MM-dd HH:mm:ss";
+		SimpleDateFormat sDF = new SimpleDateFormat(pattern);
+		SimpleDateFormat sDF2 = new SimpleDateFormat(pattern2);
+		String tempnow = sDF.format(now.getTime());
+		dbMap.put("nowTime", tempnow);
     	List<RoomDto> RegularEndRoom= roomMapper.getLastEndRoom(dbMap);
     	//
 		/*------------------------------------------------------------------------------------------------------------
 		 * 정기회의 방정보 수정 세팅
 		 *------------------------------------------------------------------------------------------------------------*/
     	int lastRoom = RegularEndRoom.size();
-    	Date now = new Date();
-    	String pattern = "yyyyMMdd";
-    	String pattern2 = "yyyy-MM-dd HH:mm:ss";
-    	SimpleDateFormat sDF = new SimpleDateFormat(pattern);
-    	SimpleDateFormat sDF2 = new SimpleDateFormat(pattern2);
     	Date nowTime = sDF.parse(sDF.format(now.getTime()));
     	Calendar cal = Calendar.getInstance();
-    	//
     	HashMap<String, Object> regularMap = new HashMap<String, Object>();
+    	//
     	if(lastRoom>0) {
-	    	for(int i = 0; i<lastRoom; i++) {
+	    	loop1 : for(int i = 0; i<lastRoom; i++) {
 				String roomCode = RegularEndRoom.get(i).getRoomCode();
 				String startDt = RegularEndRoom.get(i).getStartDt();
 				String endDt = RegularEndRoom.get(i).getEndDt();
@@ -32,28 +34,32 @@
 				Date newEndDt= sDF2.parse(endDt);
 				regularMap.put("roomCode", roomCode);
 				RegularDto regularEndInfo = roomMapper.getRegularInfo(regularMap);
+				if(regularEndInfo==null) {
+					continue loop1;
+				}else {
 				//
 				/*------------------------------------------------------------------------------------------------------------
 				 * 정기회의 종료시점이 지난 경우 정기회의 종료
 				 *------------------------------------------------------------------------------------------------------------*/
-				if(!"00".equals(regularEndInfo.getRepeatEndChk())) {
-					Date endDate = null;
-					if("01".equals(regularEndInfo.getRepeatEndChk())) {
-						endDate = sDF.parse(regularEndInfo.getRepeatEndDate());
-						if(true==nowTime.after(endDate)) {
-							regularMap.put("regularYn", "N");
-			    			int autoUpdate = roomMapper.autoUpdateRoom(regularMap);
-			    			if(0<autoUpdate) {
-			    				roomMapper.delRegular(regularMap);
-			    			}
-						}
-					} else if("02".equals(regularEndInfo.getRepeatEndChk())) {
-						if(0==regularEndInfo.getRepeatEndCount()) {
-			    			regularMap.put("regularYn", "N");
-			    			int autoUpdate = roomMapper.autoUpdateRoom(regularMap);
-			    			if(0<autoUpdate) {
-			    				roomMapper.delRegular(regularMap);
-			    			}
+					if(!"00".equals(regularEndInfo.getRepeatEndChk())) {
+						Date endDate = null;
+						if("01".equals(regularEndInfo.getRepeatEndChk())) {
+							endDate = sDF.parse(regularEndInfo.getRepeatEndDate());
+							if(true==nowTime.after(endDate)) {
+								regularMap.put("regularYn", "N");
+				    			int autoUpdate = roomMapper.autoUpdateRoom(regularMap);
+				    			if(0<autoUpdate) {
+				    				roomMapper.delRegular(regularMap);
+				    			}
+							}
+						} else if("02".equals(regularEndInfo.getRepeatEndChk())) {
+							if(0==regularEndInfo.getRepeatEndCount()) {
+				    			regularMap.put("regularYn", "N");
+				    			int autoUpdate = roomMapper.autoUpdateRoom(regularMap);
+				    			if(0<autoUpdate) {
+				    				roomMapper.delRegular(regularMap);
+				    			}
+							}
 						}
 					}
 				}
@@ -63,81 +69,92 @@
     	List<RoomDto> lastEndRoom= roomMapper.getLastEndRoom(dbMap);
     	int udtRegNum = lastEndRoom.size();
     	if(udtRegNum>0) {
-	    	for(int i = 0; i<udtRegNum; i++) {
+	    	loop2 : for(int i = 0; i<udtRegNum; i++) {
 	    		String roomCode = lastEndRoom.get(i).getRoomCode();
 	    		String startDt = lastEndRoom.get(i).getStartDt();
 	    		String endDt = lastEndRoom.get(i).getEndDt();
-	    		Date newStartDt= sDF2.parse(startDt);
-	    		Date newEndDt= sDF2.parse(endDt);
 	    		regularMap.put("roomCode", roomCode);
 	    		RegularDto regularInfo = roomMapper.getRegularInfo(regularMap);
-	    		int repeatNum = regularInfo.getRepeatNum();
-	    		/*------------------------------------------------------------------------------------------------------------
-	    		 * 반복주기가 주(01)인 경우 수정
-	    		 *------------------------------------------------------------------------------------------------------------*/
-	    		if("01".equals(regularInfo.getRepeatWeek())) {
-	    			//
-	    			calendar.setTime(nowTime);
-	    			calendar.add(Calendar.DATE, -1);
-					int dayOfWeekNumber = calendar.get(calendar.DAY_OF_WEEK);
-					regularMap.clear();
-					regularMap.put("todayOfWeek", dayOfWeekNumber);
-					//
-	    			String strDay = regularInfo.getWeekYn();
-	        		String newStrDay = "";
-	        		int intDay = 0;
-	        		int intToday = Integer.valueOf(String.valueOf(regularMap.get("todayOfWeek")));
-	        		int addDay = 0;
-	        		int reNum = 0;
-	        		for(int j = 0; j < strDay.length() ; j++) {
-	        			if("Y".equals(String.valueOf(strDay.charAt(j)))) {
-	    	    			intDay = j+1;
-	    	    			newStrDay = newStrDay + String.valueOf(intDay);
-	    	    			if(intDay>=intToday) {
-	    	    				addDay = intDay - intToday;
-	    	    			}
-	    	    			continue;
-	        			} else {
-	        				intDay = 0;
-	        				newStrDay = newStrDay + String.valueOf(intDay);
-	        			}
-	    			}
-	        		regularMap.clear();
-	        		if(addDay==0) {
-	        			reNum = (repeatNum-1)*7;
-	    				for(int k = 0; k < newStrDay.length() ; k++) {
-	    					if(!"0".equals(String.valueOf(newStrDay.charAt(k)))) {
-	    						intDay = k+1;
-	    						addDay = intDay + (7-intToday) + reNum;
-	    						continue;
-	    					}
-	    				}
-	        		}
-	        		Date tempStDt = sDF2.parse(startDt);
-	        		Calendar newCal = Calendar.getInstance();
-	        		newCal.add(Calendar.DATE, -1);
-	    			Date YestDay = sDF2.parse(sDF2.format(newCal.getTime()));
-	        		long stDt = YestDay.getTime() - tempStDt.getTime();
-	        		int btwSt = (int)stDt/(24*60*60*1000) + 1;
-	        		//
-					cal.setTime(newStartDt);
-					cal.add(Calendar.DATE, addDay+btwSt);
-					regularMap.put("startDt", sDF2.format(cal.getTime()));
-					cal.setTime(newEndDt);
-					cal.add(Calendar.DATE, addDay+btwSt);
-					regularMap.put("endDt", sDF2.format(cal.getTime()));
-					regularMap.put("roomCode", roomCode);
-					//
-		    		if("02".equals(regularInfo.getRepeatEndChk())) {
-		    			//count-1
-		    			int endCount = regularInfo.getRepeatEndCount()-1;
-		    		}
-	    		//
-	    		/*------------------------------------------------------------------------------------------------------------
-	    		 * 반복주기가 월(02), 년(03)인 경우 수정
-	    		 *------------------------------------------------------------------------------------------------------------*/
-	    		} else {
-	    				if("02".equals(regularInfo.getRepeatWeek())) {
+	    		if(regularInfo==null) {
+	    			continue loop2;
+	    		}else {
+		    		Date newStartDt= sDF2.parse(startDt);
+		    		Date newEndDt= sDF2.parse(endDt);
+		    		int repeatNum = regularInfo.getRepeatNum();
+		    		/*------------------------------------------------------------------------------------------------------------
+		    		 * 반복주기가 주(01)인 경우 수정
+		    		 *------------------------------------------------------------------------------------------------------------*/
+		    		if("01".equals(regularInfo.getRepeatWeek())) {
+		    			//
+		    			calendar.setTime(nowTime);
+		    			calendar.add(Calendar.DATE, -1);
+						int dayOfWeekNumber = calendar.get(calendar.DAY_OF_WEEK);
+						regularMap.clear();
+						regularMap.put("todayOfWeek", dayOfWeekNumber);
+						//
+		    			String strDay = regularInfo.getWeekYn();
+		        		String newStrDay = "";
+		        		int intDay = 0;
+		        		int intToday = Integer.valueOf(String.valueOf(regularMap.get("todayOfWeek")));
+		        		int addDay = 0;
+		        		int reNum = 0;
+		        		for(int j = 0; j < strDay.length() ; j++) {
+		        			if("Y".equals(String.valueOf(strDay.charAt(j)))) {
+		    	    			intDay = j+1;
+		    	    			newStrDay = newStrDay + String.valueOf(intDay);
+		    	    			if(intDay>=intToday) {
+		    	    				addDay = intDay - intToday;
+		    	    			}
+		    	    			continue;
+		        			} else {
+		        				intDay = 0;
+		        				newStrDay = newStrDay + String.valueOf(intDay);
+		        			}
+		    			}
+		        		regularMap.clear();
+		        		if(addDay==0) {
+		        			reNum = (repeatNum-1)*7;
+		    				for(int k = 0; k < newStrDay.length() ; k++) {
+		    					if(!"0".equals(String.valueOf(newStrDay.charAt(k)))) {
+		    						intDay = k+1;
+		    						addDay = intDay + (7-intToday) + reNum;
+		    						continue;
+		    					}
+		    				}
+		        		}
+		        		
+		        		Date tempStDt = sDF2.parse(startDt);
+		        		Date tempEnDt = sDF2.parse(endDt);
+		        		long btwTDt = tempEnDt.getTime() - tempStDt.getTime();
+		        		int btwDt = (int)(btwTDt/(24 * 60 * 60 * 1000));
+		        		//
+		        		cal.setTime(tempStDt);
+		        		int StartH = cal.get(calendar.HOUR);
+		        		int StartM = cal.get(calendar.MINUTE);
+		        		int StartS = cal.get(calendar.SECOND);
+		        		Calendar newCal = Calendar.getInstance();
+		        		newCal.add(Calendar.DATE, -1);
+		        		newCal.add(calendar.HOUR, StartH);
+		        		newCal.add(calendar.MINUTE, StartM);
+		        		newCal.add(calendar.SECOND, StartS);
+		        		//
+		        		newCal.add(Calendar.DATE, addDay);
+						regularMap.put("startDt", sDF2.format(newCal.getTime()));
+						cal.setTime(newEndDt);
+						newCal.add(Calendar.DATE, addDay+(int)btwDt);
+						regularMap.put("endDt", sDF2.format(newCal.getTime()));
+						regularMap.put("roomCode", roomCode);
+						//
+			    		if("02".equals(regularInfo.getRepeatEndChk())) {
+			    			//count-1
+			    			int endCount = regularInfo.getRepeatEndCount()-1;
+			    		}
+		    		//
+		    		/*------------------------------------------------------------------------------------------------------------
+		    		 * 반복주기가 월(02), 년(03)인 경우 수정
+		    		 *------------------------------------------------------------------------------------------------------------*/
+		    		} else {
+		    			if("02".equals(regularInfo.getRepeatWeek())) {
 							cal.setTime(nowTime);
 							int nowYear = cal.get(Calendar.YEAR);
 							int nowMonth = cal.get(Calendar.MONTH);
@@ -183,14 +200,16 @@
 							regularMap.put("endDt", sDF2.format(cal.getTime()));
 							regularMap.put("roomCode", roomCode);
 	    				}
+		    		}
+		    		if("02".equals(regularInfo.getRepeatEndChk())) {
+		    			//count-1
+		    			int endCount = regularInfo.getRepeatEndCount()-1;
+		    			regularMap.put("repeatEndCount", endCount);
+		    			int updateRegular = roomMapper.updateEndCount(regularMap);
+		    		}
+		    		regularMap.put("roomStatus", "01");
+		    		int updateRoom = roomMapper.autoUpdateRoom(regularMap);
 	    		}
-	    		if("02".equals(regularInfo.getRepeatEndChk())) {
-	    			//count-1
-	    			int endCount = regularInfo.getRepeatEndCount()-1;
-	    			regularMap.put("repeatEndCount", endCount);
-	    			int updateRegular = roomMapper.updateRegular(regularMap);
-	    		}
-	    		regularMap.put("roomStatus", "01");
-	    		int updateRoom = roomMapper.autoUpdateRoom(regularMap);
 	    	}
-		}
+    	}
+	}
